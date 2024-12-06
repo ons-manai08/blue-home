@@ -16,11 +16,11 @@ void main() async {
 
   // Initialisation Firebase
   try {
-    await Firebase.initializeApp(
-      options: const FirebaseOptions(
+    await Firebase.initializeApp( // Initialisation de Firebase
+    options: const FirebaseOptions(
         apiKey: "AIzaSyAgIupWbAO3tawrtKtFTx3LMJ_mPl62q7s",
         authDomain: "bluehome-6b150.firebaseapp.com",
-        databaseURL: "https://bluehome-6b150.firebaseio.com",  // Ensure this URL is correct
+      databaseURL: "https://bluehome-6b150-default-rtdb.firebaseio.com/",
         projectId: "bluehome-6b150",
         storageBucket: "bluehome-6b150.firebasestorage.app",
         messagingSenderId: "545885160023",

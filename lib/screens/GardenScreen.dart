@@ -1,55 +1,185 @@
 import 'package:flutter/material.dart';
+import 'package:firebase_database/firebase_database.dart';
 
-class GardenScreen extends StatelessWidget {
-  final int status; // Variable pour le statut
+class GardenScreen extends StatefulWidget {
+  @override
+  _GardenScreenState createState() => _GardenScreenState();
+}
 
-  GardenScreen({required this.status}); // Constructeur pour passer la valeur du statut
+class _GardenScreenState extends State<GardenScreen> {
+  final DatabaseReference _database = FirebaseDatabase.instance.ref();
+
+  double humidity = 0.0;
+  double temperature = 0.0;
+  int rainDetected = 0;
+  int gasDetected = 0;
+  int waterLevel = 0;
+  String soilStatus = "sec"; // Par défaut, le sol est sec
+
+  @override
+  void initState() {
+    super.initState();
+    _getSensorData();
+  }
+
+  void _getSensorData() {
+    _database.child('sensorData').onValue.listen((event) {
+      final data = event.snapshot.value;
+
+      if (data is Map<dynamic, dynamic>) {
+        setState(() {
+          humidity = data['Humidity'] ?? 0.0;
+          temperature = data['Temperature'] ?? 0.0;
+          rainDetected = data['Rain_Detected'] ?? 0;
+          gasDetected = data['Gas_Detected'] ?? 0;
+          waterLevel = data['Water_Level'] ?? 0;
+          soilStatus = data['Soil_Status'] ?? "sec";
+        });
+
+        _checkAlerts(); // Vérifier les alertes après avoir récupéré les données
+
+        print("Humidity: $humidity, Temperature: $temperature, Rain Detected: $rainDetected, Gas Detected: $gasDetected, Water Level: $waterLevel, Soil Status: $soilStatus");
+      } else {
+        print("Les données ne sont pas sous forme de Map.");
+      }
+    });
+  }
+
+  void _checkAlerts() {
+    // Alerte de pluie
+    if (rainDetected == 1) {
+      _showAlert("Alerte Pluie", "Il pleut. Veuillez prendre les mesures nécessaires.");
+    }
+
+    // Alerte si le sol est sec
+    if (soilStatus == "sec") {
+      _showAlert("Alerte Sol", "Le sol est sec. Veuillez l'arroser.");
+    }
+
+    // Alerte si le niveau d'eau est inférieur à 70% et qu'il pleut
+    if (rainDetected == 1 && waterLevel < 70) {
+      _showAlert("Alerte Réservoir", "Il pleut et le niveau d'eau est inférieur à 70%. Ouvrez le réservoir.");
+    }
+  }
+
+
+  void _showAlert(String title, String message) {
+    // Fonction pour afficher une alerte (par exemple, une boîte de dialogue)
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: Text(title),
+          content: Text(message),
+          actions: <Widget>[
+            TextButton(
+              onPressed: () {
+                Navigator.of(context).pop();
+              },
+              child: Text("OK"),
+            ),
+          ],
+        );
+      },
+    );
+  }
 
   @override
   Widget build(BuildContext context) {
-    return _buildAlertSection();
-  }
-
-  Widget _buildAlertSection() {
-    return Container(
-      padding: EdgeInsets.all(10), // Ajouter un peu d'espace autour de la section
-      child: Column(
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
+    return Scaffold(
+      body: SingleChildScrollView( // Permettre le défilement pour éviter l'overflow
+        child: Padding(
+          padding: const EdgeInsets.all(16.0),
+          child: Column(
             children: [
-              _buildCard(1), // Carte pour Temperature
-              _buildCard(2), // Carte pour Rain Status
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded( // Pour occuper tout l'espace disponible
+                    child: _buildSensorCard(
+                      title: "Humidité",
+                      value: humidity.toStringAsFixed(1) + " %",
+                      backgroundColor: Colors.white, // Fond blanc
+                      icon: Icons.water_drop,
+                    ),
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: _buildSensorCard(
+                      title: "Température",
+                      value: temperature.toStringAsFixed(1) + " °C",
+                      backgroundColor: Colors.white, // Fond blanc
+                      icon: Icons.thermostat,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 13),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: _buildSensorCard(
+                      title: "Pluie",
+                      value: rainDetected == 1 ? "Pluie détectée" : "Pas de pluie",
+                      backgroundColor: rainDetected == 1 ? Colors.blueAccent : Colors.white,
+                      icon: Icons.umbrella, // Icône pour la pluie
+                    ),
+                  ),
+                  const SizedBox(width: 13),
+                  Expanded(
+                    child: _buildSensorCard(
+                      title: "Sol",
+                      value: soilStatus == "humide" ? "Sol humide" : "Sol sec",
+                      backgroundColor: soilStatus == "humide" ? Colors.white : Colors.blueAccent,
+                      icon: Icons.eco, // Icône pour le sol
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 13),
+              Row(
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Expanded(
+                    child: _buildSensorCard(
+                      title: "Réservoir d'eau",
+                      value: waterLevel.toString() + "%",
+                      backgroundColor: Colors.white, // Fond blanc
+                      icon: Icons.water,
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
-          SizedBox(height: 10), // Espacement entre les lignes
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceEvenly,
-            children: [
-              _buildCard(3), // Carte pour Water Container
-              _buildCard(4), // Carte pour Humidity (nouvelle carte ajoutée)
-            ],
-          ),
-        ],
+        ),
       ),
     );
   }
 
-  // Méthode générique pour construire les cartes en fonction du statut
-  Widget _buildCard(int cardStatus) {
+  // Méthode pour construire les cartes de capteur avec gestion dynamique des couleurs et icônes
+  Widget _buildSensorCard({
+    required String title,
+    required String value,
+    required Color backgroundColor,
+    required IconData icon,
+  }) {
+    final Color textColor = backgroundColor == Colors.white ? Colors.black : Colors.white;
+
     return Container(
-      width: 170,
-      height: 172,
+      width: 187.34,
+      height: 172.13,
       child: Stack(
         children: [
           Positioned(
             left: 0,
             top: 0,
             child: Container(
-              width: 170,
-              height: 172,
+              width: 187.34,
+              height: 172.13,
               decoration: ShapeDecoration(
-                color: _getCardColorForStatus(cardStatus),
+                color: backgroundColor,
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(19.02),
                 ),
@@ -65,13 +195,13 @@ class GardenScreen extends StatelessWidget {
             ),
           ),
           Positioned(
-            left: 9,
-            top: 11,
+            left: 0,
+            top: 0,
             child: Container(
-              width: 169,
+              width: 187.34,
               height: 45,
               decoration: ShapeDecoration(
-                color: _getTopBarColorForStatus(cardStatus),
+                color: backgroundColor == Colors.white ? Colors.grey[300]! : Colors.blueAccent, // Barre supérieure
                 shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(16),
                 ),
@@ -92,12 +222,12 @@ class GardenScreen extends StatelessWidget {
                     child: SizedBox(
                       width: 129.66,
                       child: Text(
-                        _getTitleForStatus(cardStatus),
+                        title,
                         style: TextStyle(
-                          color: Colors.white,
-                          fontSize: 23.17,
+                          color: textColor, // Couleur du texte
+                          fontSize: 18.0, // Taille de la police réduite
                           fontWeight: FontWeight.w600,
-                          height: 0,
+                          height: 1.0,
                         ),
                       ),
                     ),
@@ -109,11 +239,11 @@ class GardenScreen extends StatelessWidget {
                       width: 145.99,
                       height: 17,
                       child: Text(
-                        _getDescriptionForStatus(cardStatus),
+                        value,
                         style: TextStyle(
-                          color: Color(0xFFECF1FD),
+                          color: textColor.withOpacity(0.8), // Texte plus clair
                           fontSize: 12.26,
-                          height: 0,
+                          height: 1.0,
                         ),
                       ),
                     ),
@@ -128,91 +258,11 @@ class GardenScreen extends StatelessWidget {
             child: Container(
               width: 35,
               height: 35,
-              child: _getIconForStatus(cardStatus),
+              child: Icon(icon, color: textColor, size: 24), // Icône
             ),
           ),
         ],
       ),
     );
-  }
-
-  // Méthode pour obtenir le titre en fonction du statut
-  String _getTitleForStatus(int status) {
-    switch (status) {
-      case 1:
-        return 'Temperature';
-      case 2:
-        return 'Rain Status';
-      case 3:
-        return 'Water Container';
-      case 4:
-        return 'Humidity'; // Nouvelle carte pour l'humidité
-      default:
-        return 'Unknown Status';
-    }
-  }
-
-  // Méthode pour obtenir la description en fonction du statut
-  String _getDescriptionForStatus(int status) {
-    switch (status) {
-      case 1:
-        return 'Current temperature is high';
-      case 2:
-        return 'Rain status is moderate';
-      case 3:
-        return 'Water container is full';
-      case 4:
-        return 'Humidity is ideal'; // Description pour Humidity
-      default:
-        return 'Status unknown';
-    }
-  }
-
-  // Méthode pour obtenir la couleur de la carte en fonction du statut
-  Color _getCardColorForStatus(int status) {
-    switch (status) {
-      case 1:
-        return Color(0xFF2E79E6); // Bleu pour Temperature
-      case 2:
-        return Color(0xFF3D86F7); // Orange pour Rain Status
-      case 3:
-        return Color(0xFF3D86F7); // Vert pour Water Container
-      case 4:
-        return Color(0xFF3D86F7); // Vert clair pour Humidity
-      default:
-        return Colors.white;
-    }
-  }
-
-  // Méthode pour obtenir la couleur de la barre supérieure en fonction du statut
-  Color _getTopBarColorForStatus(int status) {
-    switch (status) {
-      case 1:
-        return Color(0xFF3D86F7); // Bleu pour Temperature
-      case 2:
-        return Color(0xFF3D86F7); // Orange pour Rain Status
-      case 3:
-        return Color(0xFF3D86F7); // Vert pour Water Container
-      case 4:
-        return Color(0xFF3D86F7); // Vert clair pour Humidity
-      default:
-        return Color(0xFF3D86F7);  // Gris clair pour statut inconnu
-    }
-  }
-
-  // Méthode pour obtenir l'icône en fonction du statut
-  Widget _getIconForStatus(int status) {
-    switch (status) {
-      case 1:
-        return Icon(Icons.thermostat, color: Colors.white, size: 24); // Icône de température
-      case 2:
-        return Icon(Icons.cloud, color: Colors.white, size: 24); // Icône de pluie
-      case 3:
-        return Icon(Icons.water_drop, color: Colors.white, size: 24); // Icône de conteneur d'eau
-      case 4:
-        return Icon(Icons.water, color: Colors.white, size: 24); // Icône pour Humidity
-      default:
-        return Icon(Icons.error, color: Colors.white, size: 24); // Icône d'erreur
-    }
   }
 }

@@ -1,11 +1,54 @@
 import 'package:blue_home/widgets/ChartData.dart';
 import 'package:blue_home/widgets/chart_widget.dart';
+import 'package:firebase_database/firebase_database.dart';
 import 'package:flutter/material.dart';
 import 'package:charts_flutter/flutter.dart' as charts;
 import 'package:get/get.dart';
-import 'package:get/get_core/src/get_main.dart';
 
-class StatisticsScreen extends StatelessWidget {
+class StatisticsScreen extends StatefulWidget {
+  @override
+  _StatisticsScreenState createState() => _StatisticsScreenState();
+}
+
+class _StatisticsScreenState extends State<StatisticsScreen> {
+  final DatabaseReference _database = FirebaseDatabase.instance.ref();
+  late Future<List<StatisticData>> statistics;
+
+  @override
+  void initState() {
+    super.initState();
+    statistics = fetchStatistics(); // Récupérer les données Firebase
+  }
+
+  Future<List<StatisticData>> fetchStatistics() async {
+    try {
+      final snapshot = await _database.child('sensorData').get(); // Chemin mis à jour
+
+      print('Snapshot value: ${snapshot.value}');
+
+      if (snapshot.exists) {
+        final data = snapshot.value as Map<dynamic, dynamic>;
+
+        // Mappez directement les champs nécessaires
+        List<StatisticData> statistics = [
+          StatisticData(label: 'Humidity', value: data['Humidity'].toString()),
+          StatisticData(label: 'Temperature', value: data['Temperature'].toString()),
+          StatisticData(label: 'Rain Detected', value: data['Rain_Detected'] == 1 ? 'Yes' : 'No'),
+          StatisticData(label: 'Gas Detected', value: data['Gas_Detected'] == 1 ? 'Yes' : 'No'),
+          StatisticData(label: 'Water Level', value: data['Water_Level'].toString()),
+          StatisticData(label: 'Soil Moisture', value: data['Soil_Moisture'].toString()),
+        ];
+
+        return statistics;
+      } else {
+        throw Exception("No data found in sensorData");
+      }
+    } catch (e) {
+      print('Error: $e'); // Debugging line
+      throw Exception("Failed to fetch statistics: $e");
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     return Scaffold(
@@ -16,299 +59,121 @@ class StatisticsScreen extends StatelessWidget {
       ),
       body: Padding(
         padding: const EdgeInsets.all(16.0),
-        child: SingleChildScrollView( // Ajout d'un défilement
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.center,
-            children: [
-              // Conteneur pour les statistiques
-              Container(
-                width: double.infinity, // Utilisation de l'espace disponible
-                height: 108.67,
-                child: Row(
-                  mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                  children: [
-                    _buildStatsBox('Humidity', '50%', Icons.cloud_outlined),
-                    _buildStatsBox('Temperature', '33°C', Icons.thermostat_outlined),
-                    _buildStatsBox('Saved Water', '30L', Icons.water_outlined),
-                  ],
-                ),
-              ),
-              SizedBox(height: 20),
-              // Conteneur pour le graphique
-              Container(
-                width: double.infinity, // Utilisation de l'espace disponible
-                height: 297,
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
-                decoration: ShapeDecoration(
-                  color: Colors.white,
-                  shape: RoundedRectangleBorder(
-                    borderRadius: BorderRadius.circular(19.02),
+        child: FutureBuilder<List<StatisticData>>(
+          future: statistics,
+          builder: (context, snapshot) {
+            if (snapshot.connectionState == ConnectionState.waiting) {
+              return Center(child: CircularProgressIndicator());
+            }
+
+            if (snapshot.hasError) {
+              return Center(child: Text("Error: ${snapshot.error}"));
+            }
+
+            if (!snapshot.hasData || snapshot.data!.isEmpty) {
+              return Center(child: Text("No statistics available"));
+            }
+
+            List<StatisticData> data = snapshot.data!;
+
+            String humidity = (data.firstWhere(
+                  (item) => item.label == 'Humidity',
+              orElse: () => StatisticData(label: 'Humidity', value: 'N/A'),
+            )).value;
+
+            String temperature = (data.firstWhere(
+                  (item) => item.label == 'Temperature',
+              orElse: () => StatisticData(label: 'Temperature', value: 'N/A'),
+            )).value;
+
+            String rainDetected = (data.firstWhere(
+                  (item) => item.label == 'Rain Detected',
+              orElse: () => StatisticData(label: 'Rain Detected', value: 'N/A'),
+            )).value;
+
+            String gasDetected = (data.firstWhere(
+                  (item) => item.label == 'Gas Detected',
+              orElse: () => StatisticData(label: 'Gas Detected', value: 'N/A'),
+            )).value;
+
+            String waterLevel = (data.firstWhere(
+                  (item) => item.label == 'Water Level',
+              orElse: () => StatisticData(label: 'Water Level', value: 'N/A'),
+            )).value;
+
+            String soilMoisture = (data.firstWhere(
+                  (item) => item.label == 'Soil Moisture',
+              orElse: () => StatisticData(label: 'Soil Moisture', value: 'N/A'),
+            )).value;
+
+            return SingleChildScrollView(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.center,
+                children: [
+                  Container(
+                    width: double.infinity,
+                    height: 108.67,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildStatsBox('Humidity', humidity, Icons.cloud_outlined),
+                        _buildStatsBox('Temperature', temperature, Icons.thermostat_outlined),
+                        _buildStatsBox('Rain Detected', rainDetected, Icons.grain_outlined),
+                      ],
+                    ),
                   ),
-                  shadows: [
-                    BoxShadow(
-                      color: Color(0x423880F6),
-                      blurRadius: 11.50,
-                      offset: Offset(0, 7),
+                  SizedBox(height: 20),
+                  Container(
+                    width: double.infinity,
+                    height: 108.67,
+                    child: Row(
+                      mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                      children: [
+                        _buildStatsBox('Gas Detected', gasDetected, Icons.warning_amber_outlined),
+                        _buildStatsBox('Water Level', waterLevel, Icons.water_outlined),
+                        _buildStatsBox('Soil Moisture', soilMoisture, Icons.grass_outlined),
+                      ],
                     ),
-                  ],
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    ChartWidget(_createSampleData().cast<charts.Series<ChartData, String>>()), // Affichage du graphique
-                  ],
-                ),
-              ),
-              SizedBox(height: 20),
-              // Conteneur pour les autres données statistiques
-              Container(
-                width: double.infinity, // Utilisation de l'espace disponible
-                height: 172.13,
-                child: Row(
-                  mainAxisSize: MainAxisSize.min,
-                  mainAxisAlignment: MainAxisAlignment.start,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Expanded(
-                      child: Container(
-                        height: 172.13,
-                        child: Stack(
-                          children: [
-                            Positioned(
-                              left: 0,
-                              top: 0,
-                              child: Container(
-                                width: 178.50,
-                                height: 172.13,
-                                decoration: ShapeDecoration(
-                                  color: Color(0xFF2666DE),
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(19.02),
-                                  ),
-                                  shadows: [
-                                    BoxShadow(
-                                      color: Color(0x423880F6),
-                                      blurRadius: 36,
-                                      offset: Offset(0, 16),
-                                    )
-                                  ],
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              left: 20.01,
-                              top: 28,
-                              child: Container(
-                                width: 143.87,
-                                height: 124,
-                                child: Stack(
-                                  children: [
-                                    Positioned(
-                                      left: 0,
-                                      top: 32,
-                                      child: SizedBox(
-                                        width: 143.87,
-                                        height: 26,
-                                        child: Text(
-                                          '10 Litres',
-                                          style: TextStyle(
-                                            color: Colors.white,
-                                            fontSize: 23,
-                                            fontFamily: 'Inter',
-                                            fontWeight: FontWeight.w400,
-                                            height: 0,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      left: 0.95,
-                                      top: 100,
-                                      child: Container(
-                                        width: 60.03,
-                                        height: 24,
-                                        child: Stack(
-                                          children: [
-                                            Positioned(
-                                              left: 28.58,
-                                              top: 3,
-                                              child: SizedBox(
-                                                width: 31.44,
-                                                height: 15,
-                                                child: Text(
-                                                  '2.3%',
-                                                  style: TextStyle(
-                                                    color: Colors.white,
-                                                    fontSize: 13,
-                                                    fontFamily: 'Inter',
-                                                    fontWeight: FontWeight.w400,
-                                                    height: 0,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              left: 0,
-                                              top: 0,
-                                              child: Container(
-                                                width: 22.87,
-                                                height: 24,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      left: 3.81,
-                                      top: 0,
-                                      child: SizedBox(
-                                        width: 83.85,
-                                        height: 33,
-                                        child: Text(
-                                          'Today',
-                                          style: TextStyle(
-                                            color: Color(0xFFECF1FD),
-                                            fontSize: 15,
-                                            fontFamily: 'Inter',
-                                            fontWeight: FontWeight.w400,
-                                            height: 0,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
-                        ),
+                  ),
+                  SizedBox(height: 20),
+                  // Affichage du graphique
+                  Container(
+                    width: double.infinity,
+                    height: 297,
+                    padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 20),
+                    decoration: ShapeDecoration(
+                      color: Colors.white,
+                      shape: RoundedRectangleBorder(
+                        borderRadius: BorderRadius.circular(19.02),
                       ),
-                    ),
-                    const SizedBox(width: 31),
-                    Expanded(
-                      child: Container(
-                        height: 172.13,
-                        child: Stack(
-                          children: [
-                            Positioned(
-                              left: 0,
-                              top: 0,
-                              child: Container(
-                                width: 178.50,
-                                height: 172.13,
-                                decoration: ShapeDecoration(
-                                  color: Colors.white,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(19.02),
-                                  ),
-                                  shadows: [
-                                    BoxShadow(
-                                      color: Color(0x1E3981F6),
-                                      blurRadius: 30.43,
-                                      offset: Offset(0, 0),
-                                    )
-                                  ],
-                                ),
-                              ),
-                            ),
-                            Positioned(
-                              left: 21,
-                              top: 28,
-                              child: Container(
-                                width: 112.86,
-                                height: 124,
-                                child: Stack(
-                                  children: [
-                                    Positioned(
-                                      left: 2.86,
-                                      top: 32.33,
-                                      child: Text(
-                                        '200 Litres',
-                                        style: TextStyle(
-                                          color: Color(0xFF07123C),
-                                          fontSize: 23,
-                                          fontFamily: 'Inter',
-                                          fontWeight: FontWeight.w400,
-                                          height: 0,
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      left: 0,
-                                      top: 100,
-                                      child: Container(
-                                        width: 60.14,
-                                        height: 24,
-                                        child: Stack(
-                                          children: [
-                                            Positioned(
-                                              left: 28.64,
-                                              top: 3,
-                                              child: SizedBox(
-                                                width: 31.50,
-                                                height: 15,
-                                                child: Text(
-                                                  '2.3%',
-                                                  style: TextStyle(
-                                                    color: Color(0xFF07123C),
-                                                    fontSize: 13,
-                                                    fontFamily: 'Inter',
-                                                    fontWeight: FontWeight.w400,
-                                                    height: 0,
-                                                  ),
-                                                ),
-                                              ),
-                                            ),
-                                            Positioned(
-                                              left: 0,
-                                              top: 0,
-                                              child: Container(
-                                                width: 22.91,
-                                                height: 24,
-                                              ),
-                                            ),
-                                          ],
-                                        ),
-                                      ),
-                                    ),
-                                    Positioned(
-                                      left: 2.86,
-                                      top: 0,
-                                      child: SizedBox(
-                                        width: 101.18,
-                                        height: 33,
-                                        child: Text(
-                                          'Last Month',
-                                          style: TextStyle(
-                                            color: Color(0xFF6F7EA8),
-                                            fontSize: 15,
-                                            fontFamily: 'Inter',
-                                            fontWeight: FontWeight.w400,
-                                            height: 0,
-                                          ),
-                                        ),
-                                      ),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ],
+                      shadows: [
+                        BoxShadow(
+                          color: Color(0x423880F6),
+                          blurRadius: 11.50,
+                          offset: Offset(0, 7),
                         ),
-                      ),
+                      ],
                     ),
-                  ],
-                ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: ChartWidget(_createSampleData().cast<charts.Series<ChartData, String>>()), // Affichage du graphique
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            );
+          },
         ),
       ),
-      bottomNavigationBar: _buildBottomNavigationBar(),
+      bottomNavigationBar: _buildBottomNavigationBar(), // Ajout de la barre de navigation
     );
   }
 
+  // Méthode pour construire le BottomNavigationBar
   Widget _buildBottomNavigationBar() {
     return Container(
       height: 68,
@@ -337,21 +202,68 @@ class StatisticsScreen extends StatelessWidget {
     );
   }
 
+  // Méthode pour chaque icône de navigation
   Widget _buildNavIcon(IconData icon, String route) {
     return IconButton(
       icon: Icon(icon, color: Colors.white),
       onPressed: () => Get.toNamed(route),
     );
   }
-}
 
-  // Exemple de données pour le graphique
+  // Méthode pour construire chaque boîte de statistiques
+  Widget _buildStatsBox(String label, String value, IconData icon) {
+    return Container(
+      width: 99,
+      height: 108.67,
+      padding: const EdgeInsets.all(7),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(19),
+        boxShadow: [
+          BoxShadow(
+            color: Color(0x1F3981F6),
+            blurRadius: 30.43,
+            offset: Offset(0, 0),
+          ),
+        ],
+      ),
+      child: Column(
+        mainAxisAlignment: MainAxisAlignment.center,
+        children: [
+          Icon(icon, size: 25, color: Color(0xFF07123C)),
+          SizedBox(height: 5),
+          Text(
+            value,
+            style: TextStyle(
+              fontSize: 20,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w500,
+            ),
+          ),
+          SizedBox(height: 5),
+          Text(
+            label,
+            style: TextStyle(
+              fontSize: 13,
+              fontFamily: 'Inter',
+              fontWeight: FontWeight.w400,
+              color: Color(0xFF6F7EA8),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
   List<charts.Series<ChartData, String>> _createSampleData() {
     final data = [
-      ChartData('Jan', 5),
-      ChartData('Feb', 25),
-      ChartData('Mar', 100),
-      ChartData('Apr', 75),
+      ChartData('Mon', 1),
+      ChartData('Tue', 2),
+      ChartData('Wed', 3),
+      ChartData('Thu', 4),
+      ChartData('Fri', 5),
+      ChartData('Sat', 6),
+      ChartData('Sun', 7),
     ];
 
     return [
@@ -363,34 +275,19 @@ class StatisticsScreen extends StatelessWidget {
       ),
     ];
   }
+}
 
-  // Widget pour afficher une boîte de statistiques
-  Widget _buildStatsBox(String title, String value, IconData icon) {
-    return Container(
-      padding: EdgeInsets.all(8),
-      width: 100,
-      height: 120,
-      decoration: BoxDecoration(
-        color: Color(0xFF4F81D1),
-        borderRadius: BorderRadius.circular(12),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black12,
-            offset: Offset(0, 4),
-            blurRadius: 4,
-          ),
-        ],
-      ),
-      child: Column(
-        mainAxisAlignment: MainAxisAlignment.center,
-        children: [
-          Icon(icon, color: Colors.white, size: 30),
-          SizedBox(height: 8),
-          Text(title, style: TextStyle(color: Colors.white, fontSize: 18)),
-          SizedBox(height: 4),
-          Text(value, style: TextStyle(color: Colors.white, fontSize: 16)),
-        ],
-      ),
+class StatisticData {
+  final String label;
+  final String value;
+
+  StatisticData({required this.label, required this.value});
+
+  // Méthode pour convertir Realtime Database data en objet Dart
+  factory StatisticData.fromDatabase(Map<dynamic, dynamic> databaseData) {
+    return StatisticData(
+      label: databaseData['label'] ?? '',
+      value: databaseData['value'] ?? '',
     );
   }
-
+}

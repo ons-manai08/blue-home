@@ -5,7 +5,6 @@ import 'package:flutter/material.dart';
 import 'package:get/get.dart';
 import '../services/AuthService.dart';
 
-
 class DashboardScreen extends StatefulWidget {
   @override
   _DashboardScreenState createState() => _DashboardScreenState();
@@ -15,9 +14,9 @@ class _DashboardScreenState extends State<DashboardScreen> {
   int _selectedTabIndex = 0; // Index for selected tab
 
   final List<Widget> _tabWidgets = [
-    GardenScreen(status: 1,),
+    GardenScreen(),
     KitchenScreen(),
-    BathScreen(status: 4,),
+    BathScreen(),
   ];
 
   final List<String> _tabTitles = [
@@ -122,7 +121,6 @@ class _DashboardScreenState extends State<DashboardScreen> {
     );
   }
 
-
   Widget _buildBottomNavigationBar() {
     return Container(
       height: 68,
@@ -218,7 +216,7 @@ class _FirstNameSectionState extends State<FirstNameSection> {
                     blurRadius: 30.43,
                     offset: Offset(0, 10.46),
                     spreadRadius: 0,
-                  )
+                  ),
                 ],
               ),
             ),
@@ -241,7 +239,7 @@ class _FirstNameSectionState extends State<FirstNameSection> {
                     blurRadius: 30.43,
                     offset: Offset(0, 10.46),
                     spreadRadius: 0,
-                  )
+                  ),
                 ],
               ),
               child: Row(
@@ -264,6 +262,13 @@ class _FirstNameSectionState extends State<FirstNameSection> {
                       color: Colors.white,
                       shape: RoundedRectangleBorder(
                         borderRadius: BorderRadius.circular(16),
+                      ),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(16),
+                      child: Image.asset(
+                        'assets/images/logo.png', // Remplacez par le chemin de votre logo
+                        fit: BoxFit.cover,
                       ),
                     ),
                   ),
