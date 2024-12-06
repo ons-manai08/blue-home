@@ -1,0 +1,29 @@
+{
+  "project_info": {
+    "project_number": "545885160023",
+    "project_id": "bluehome-6b150",
+    "storage_bucket": "bluehome-6b150.firebasestorage.app"
+  },
+  "client": [
+    {
+      "client_info": {
+        "mobilesdk_app_id": "1:545885160023:android:de9d7041fe328d94c9d912",
+        "android_client_info": {
+          "package_name": "com.blue_home"
+        }
+      },
+      "oauth_client": [],
+      "api_key": [
+        {
+          "current_key": "AIzaSyCXgu3IDpM2b-PHzlQLPiPbo5MrF27OTFA"
+        }
+      ],
+      "services": {
+        "appinvite_service": {
+          "other_platform_oauth_client": []
+        }
+      }
+    }
+  ],
+  "configuration_version": "1"
+}
